@@ -3,7 +3,7 @@
 import os, sys, shutil, logging, warnings
 from tqdm import tqdm
 from colorama import Fore, Back, init,Style
-from pymilvus import connections, MilvusException
+from pymilvus import connections, MilvusException,utility
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
@@ -20,7 +20,7 @@ BOLD = '\033[1m'
 INGEST_DIR = "ingest"
 PROCESSED_DIR = "docs"
 EMBEDDING_MODEL="nomic-embed-text"
-
+RAG_COLLECTION="rag_docs"
 # Ingest Class
 class Ingest:
     BATCH_SIZE=0
@@ -36,22 +36,19 @@ class Ingest:
             self.BATCH_SIZE=1000
         self.start()
     def start(self):
-        """Process documents one by one with progress bar"""
+        #Process documents
         all_files = [os.path.join(INGEST_DIR, f) for f in os.listdir(INGEST_DIR)]
         all_files.sort()
         batch_files = all_files[:self.BATCH_SIZE]
 
         if not batch_files:
-            print(Fore.GREEN+" All documents are ingested.")
+            print(Fore.GREEN+"  ✅ All documents are ingested.")
             return
 
         print(Fore.YELLOW+" Vector Store : Connecting", end="\r")
         try:
             connections.connect("default", host="127.0.0.1", port="19530")
-            self.vector_store = MilvusVectorStore(
-                collection_name="rag_docs",
-                dim=1024,   # embedding size
-            )
+            self.vector_store = MilvusVectorStore( collection_name=RAG_COLLECTION, dim=768)
             print(Fore.GREEN+" Vector Store : ✔️         ", end="\r")
         except MilvusException as e:
             print(Fore.RED+" Vector Store : ❌ Error     ", end="\r")

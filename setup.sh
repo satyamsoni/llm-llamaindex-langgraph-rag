@@ -10,6 +10,7 @@ PACKAGES=(
     milvus
     pymilvus
     ollama
+    docx2txt
     llama-index-embeddings-ollama
     llama-index-llms-ollama
     llama-index-vector-stores-milvus
