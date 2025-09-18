@@ -1,4 +1,4 @@
-# LLM implementation with LangGraph
+# LLM implementation with LlamaIndex & LangGraph
 Local LLM implementation with llamaindex & LangGraph, RAG on Milvus , Ollama
 
 ## Purpose : 
@@ -11,6 +11,7 @@ Local LLM implementation with llamaindex & LangGraph, RAG on Milvus , Ollama
 ## How to setup 
 1. Clone the repo "git@github.com:satyamsoni/llm-llamaindex-langgraph-rag.git"
 2. Run Setup file "source ./setup.sh" after giving execute permission.
+3. create a folder name "ingest" and please copy all files inside.
 
 
 ## How to Try
