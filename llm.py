@@ -2,6 +2,7 @@
 
 import sys
 from pymilvus import connections
+from dotenv import load_dotenv
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.embeddings.ollama import OllamaEmbedding
@@ -11,11 +12,10 @@ import warnings,logging
 from colorama import Fore, Back, Style, init
 
 init(autoreset=True)
+load_dotenv()
 BOLD = '\033[1m'
-EMBEDDING_MODEL="nomic-embed-text"
-LLM_MODEL = "mistral"
-RAG_COLLECTION="rag_docs"
 warnings.filterwarnings("ignore")
+
 # --- LangGraph State ---
 class State(dict):
 	question: str
@@ -34,10 +34,16 @@ class LLM:
 		print(bnrSty+" |                LLM Chat+RAG [ llamaIndex,langGraph, Milvus ]                 | ")
 		print(bnrSty+" |                             by : Satyam Swarnkar                             | ")
 		print(bnrSty+" *------------------------------------------------------------------------------* ")
+		self.MILVUS_HOST=os.environ.get("MILVUS_HOST")
+        self.MILVUS_PORT=os.environ.get("MILVUS_PORT")
+        self.MILVUS_ALIAS=os.environ.get("MILUS_ALIAS")
+        self.RAG_COLLECTION=os.environ.get("RAG_COLLECTION")
+        self.EMBEDDING_MODEL=os.environ.get("EMBEDDING_MODEL")
+        self.LLM_MODEL=os.environ.get("LLM_MODEL")
 		# Connect to Milvus
-		connections.connect("default", host="127.0.0.1", port="19530")
+		connections.connect(self.MILVUS_ALIAS, host=self.MILVUS_HOST, port=self.MILVUS_PORT)
 		self.vector_store = MilvusVectorStore(
-			collection_name=RAG_COLLECTION,
+			collection_name=self.RAG_COLLECTION,
 			dim=768
 		)
 
@@ -46,12 +52,11 @@ class LLM:
 		self.index = VectorStoreIndex.from_vector_store(
 			vector_store=self.vector_store,
 			storage_context=storage_context,
-			embed_model=OllamaEmbedding(model_name=EMBEDDING_MODEL)
+			embed_model=OllamaEmbedding(model_name=self.EMBEDDING_MODEL)
 		)
 
 		# LLM
-		self.llm = Ollama(model=LLM_MODEL)
-
+		self.ollama = Ollama(model=self.LLM_MODEL)
 		# LangGraph for formatting
 		graph = StateGraph(State)
 		graph.add_node("format", format_response)
@@ -60,9 +65,10 @@ class LLM:
 
 	def query(self, question: str) -> str:
 		# Step 1: Retrieve context
-		query_engine = self.index.as_query_engine(llm=self.llm)
+		query_engine = self.index.as_query_engine(llm=self.ollama)
 		response = query_engine.query(question)
-
+		print("Number of documents in index:", len(self.index.docstore.docs))
+		print(response)
 		# Step 2: LangGraph formatting
 		state = {"question": question, "answer": str(response)}
 		result = self.formatter.invoke(state)

@@ -14,6 +14,7 @@ PACKAGES=(
     llama-index-embeddings-ollama
     llama-index-llms-ollama
     llama-index-vector-stores-milvus
+    llama-index-embeddings-huggingface
 )
 
 echo "Creating virtual environment: $ENV_NAME"

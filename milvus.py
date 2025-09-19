@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import sys
+from dotenv import load_dotenv
 from pymilvus import connections, utility, Collection, FieldSchema, CollectionSchema, DataType
 
+load_dotenv()
+
 class MilvusShell:
-    def __init__(self, host="127.0.0.1", port="19530", alias="default"):
+    def __init__(self, host=os.environ.get("MILVUS_HOST"), port=os.environ.get("MILVUS_PORT"), alias=os.environ.get("MILUS_ALIAS")):
         self.alias = alias
         connections.connect(alias, host=host, port=port)
         print(f"✅ Connected to Milvus at {host}:{port}")
@@ -40,7 +43,7 @@ class MilvusShell:
         ]
         schema = CollectionSchema(fields)
         Collection(name, schema)
-
+        print(f"🔢 Collection created :'{name}'")
     def run(self):
         print("💡 Type 'help' for commands")
         while True:
