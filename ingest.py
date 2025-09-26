@@ -30,7 +30,7 @@ class Ingest:
         print(bnrSty+" *------------------------------------------------------------------------------* ")
         self.MILVUS_HOST=os.environ.get("MILVUS_HOST")
         self.MILVUS_PORT=os.environ.get("MILVUS_PORT")
-        self.MILVUS_ALIAS=os.environ.get("MILUS_ALIAS")
+        self.MILVUS_ALIAS=os.environ.get("MILVUS_ALIAS")
         self.RAG_COLLECTION=os.environ.get("RAG_COLLECTION")
         self.EMBEDDING_MODEL=os.environ.get("EMBEDDING_MODEL")
         self.INGEST_DIR=os.environ.get("INGEST_DIR")
@@ -52,10 +52,18 @@ class Ingest:
 
         print(Fore.YELLOW+" Vector Store : Connecting", end="\r")
         try:
-            connections.connect(self.MILVUS_ALIAS, host=self.MILVUS_HOST, port=self.MILVUS_PORT)
-            if not utility.has_collection(self.RAG_COLLECTION):
+            connections.connect(
+                alias=self.MILVUS_ALIAS,
+                host=self.MILVUS_HOST,
+                port=self.MILVUS_PORT
+            )
+            self.vector_store = MilvusVectorStore( 
+                uri=f"tcp://{self.MILVUS_HOST}:{self.MILVUS_PORT}",
+                collection_name=self.RAG_COLLECTION,
+                using=self.MILVUS_ALIAS, 
+                dim=768)
+            if not self.vector_store.client.has_collection(self.RAG_COLLECTION):
                 self.createCollection()
-            self.vector_store = MilvusVectorStore( collection_name=self.RAG_COLLECTION, dim=768)
             print(Fore.GREEN+" Vector Store : ✔️         ", end="\r")
             print("\n")
         except MilvusException as e:
@@ -67,8 +75,6 @@ class Ingest:
             print("\n")
 
         self.embed_model = OllamaEmbedding(model_name=self.EMBEDDING_MODEL)
-        print(Fore.YELLOW+f" Found {len(batch_files)} docs for ingestion")
-
         success, failed = 0, 0
         with tqdm(batch_files, desc="Ingesting", unit="doc") as pbar:
             for f in pbar:
@@ -80,27 +86,29 @@ class Ingest:
                     failed += 1
 
         print(Fore.GREEN+f" ✅ Completed: {success} | {Fore.RED}❌ Failed: {failed}")
+
     def embed_rag(self, file_path: str):
         try:
-            documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
+            # Get the document
+            doc = SimpleDirectoryReader(input_files=[file_path]).load_data()
             
             # Create a storage context connected to Milvus
             storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
-
+            
             # Build index and send embeddings to Milvus
-            index = VectorStoreIndex.from_documents(
-                documents,
-                storage_context=storage_context,
-                embed_model=self.embed_model
-            )
-            coll = Collection(self.RAG_COLLECTION, self.MILVUS_ALIAS)
-            coll.load()
-            print(f"🔢 Entities in '{coll}':", coll.num_entities)
-            # Persist metadata locally
-            #index.storage_context.persist("./storage")
 
-            # Move the processed file
-            #shutil.move(file_path, os.path.join(self.PROCESSED_DIR, os.path.basename(file_path)))
+            try:
+                index = VectorStoreIndex.from_documents(
+                    doc,
+                    storage_context=storage_context,
+                    embed_model=self.embed_model
+                )
+            except Exception as e:
+                print("Error during indexing:", e)
+            # Persist metadata locally if needed
+            index.storage_context.persist("./storage")
+            # Move files
+            shutil.move(file_path, os.path.join(self.PROCESSED_DIR, os.path.basename(file_path)))
             return True
 
         except Exception as e:
@@ -114,7 +122,15 @@ class Ingest:
             FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535)
         ]
         schema = CollectionSchema(fields,description="RAG Data")
-        Collection(name=self.RAG_COLLECTION, schema=schema)
+        Collection(name=self.RAG_COLLECTION, schema=schema,using=self.MILVUS_ALIAS)
+        coll = Collection(name=self.RAG_COLLECTION, using=self.MILVUS_ALIAS)
+        index_params = {
+            "metric_type": "L2",        # or "COSINE" / "IP"
+            "index_type": "IVF_FLAT",   # other options: HNSW, IVF_SQ8, IVF_PQ
+            "params": {"nlist": 1024}   # number of clusters, adjust based on data size
+        }
+        coll.create_index(field_name="embedding", index_params=index_params)
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python ingest.py <number_of_docs>")

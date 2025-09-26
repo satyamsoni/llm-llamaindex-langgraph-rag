@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-import sys
+import sys,os
 from dotenv import load_dotenv
 from pymilvus import connections, utility, Collection, FieldSchema, CollectionSchema, DataType
 
 load_dotenv()
 
 class MilvusShell:
-    def __init__(self, host=os.environ.get("MILVUS_HOST"), port=os.environ.get("MILVUS_PORT"), alias=os.environ.get("MILUS_ALIAS")):
-        self.alias = alias
-        connections.connect(alias, host=host, port=port)
+    def __init__(self):
+        self.alias = os.environ.get("MILVUS_ALIAS")
+        port=os.environ.get("MILVUS_PORT")
+        host=os.environ.get("MILVUS_HOST")
+        connections.connect(self.alias, host=host, port=port)
         print(f"✅ Connected to Milvus at {host}:{port}")
 
     def list_collections(self):
@@ -26,14 +28,23 @@ class MilvusShell:
         if not utility.has_collection(name, using=self.alias):
             print(f"⚠️ Collection '{name}' not found")
             return
-        coll = Collection(name, using=self.alias)
+        coll = Collection(name=name, using=self.alias)
         print("ℹ️ Info:", coll.describe())
 
     def count_entities(self, name):
         if not utility.has_collection(name, using=self.alias):
             print(f"⚠️ Collection '{name}' not found")
             return
-        coll = Collection(name, using=self.alias)
+        coll = Collection(name=name, using=self.alias)
+        """index_params = {
+            "metric_type": "L2",        # or "COSINE" / "IP"
+            "index_type": "IVF_FLAT",   # other options: HNSW, IVF_SQ8, IVF_PQ
+            "params": {"nlist": 1024}   # number of clusters, adjust based on data size
+        }
+
+        coll.create_index(field_name="embedding", index_params=index_params)
+        """
+        coll.load()
         print(f"🔢 Entities in '{name}':", coll.num_entities)
     def create(self,name):
         fields = [

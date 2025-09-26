@@ -26,18 +26,19 @@ services:
     command: server /data
 
   milvus-standalone:
-    image: milvusdb/milvus:v2.3.9
+    image: milvusdb/milvus:v2.5.4
     container_name: milvus-standalone
     ports:
-      - "19530:19530"
-      - "9091:9091"
+      - "19530:19530"  # Milvus API
+      - "9091:9091"    # WebUI
     environment:
       - ETCD_ENDPOINTS=etcd:2379
       - MINIO_ADDRESS=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
+      - MILVUS_WEBUI_ENABLED=true          # Enable WebUI
+      - MILVUS_PROXY_METRICS_PORT=9091     # WebUI Port
     depends_on:
       - etcd
       - minio
     command: ["milvus", "run", "standalone"]
-
